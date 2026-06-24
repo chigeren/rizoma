@@ -5,10 +5,28 @@ Portable RIZOMA agent that runs on PHP with no dependencies.
 ## Quick start
 
 `ash
-php agent.php init    # create bridge.json
-php agent.php chat   # interactive mode
-php agent.php daemon # background processing
-php agent.php        # oneshot (process bridge messages)
+# Oneshot (process bridge messages and exit)
+php agent.php
+
+# Interactive chat
+php agent.php chat
+
+# Daemon mode (runs forever, polls every 5s)
+php agent.php daemon
+
+# Initialize bridge
+php agent.php init
+`
+
+## Run from USB flash drive
+
+The zipyoung/ folder includes its own PHP binary.
+Double-click un.bat or run from terminal:
+
+`
+run.bat         -> oneshot mode
+run.bat chat    -> interactive chat
+run.bat daemon  -> daemon mode
 `
 
 ## How it works
@@ -20,9 +38,8 @@ php agent.php        # oneshot (process bridge messages)
 
 ## Requirements
 
-- PHP 8.0+ with file_get_contents and SSL support
 - Internet access to chigerev.ru
 
 ## Config
 
-Edit config.json to change model, API key, or site directory.
+Set your API key and model in gent.php constants or copy config.json.example to config.json.
