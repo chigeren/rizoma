@@ -118,14 +118,11 @@ function oneShot() {
 
 if ($mode === 'chat') {
     echo "zipyoung interactive. Type 'q' to quit.\n";
-    if (substr(PHP_OS, 0, 3) === 'WIN') stream_set_blocking(STDIN, false);
     while (true) {
         echo "\n> ";
-        if (substr(PHP_OS, 0, 3) === 'WIN') stream_set_blocking(STDIN, true);
         $input = trim(fgets(STDIN));
-        if (substr(PHP_OS, 0, 3) === 'WIN') stream_set_blocking(STDIN, false);
+        if ($input === '' || $input === false) continue;
         if ($input === 'q' || $input === 'quit') break;
-        if (!$input) continue;
         $t0 = microtime(true);
         $r = callAI($input);
         echo $r['text'] . "\n[" . round(microtime(true) - $t0, 1) . "s]\n";
