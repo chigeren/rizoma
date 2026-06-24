@@ -1,0 +1,9 @@
+{
+    "agent_name": "young",
+    "bridge_file": "./bridge.json",
+    "api_url": "https://chigerev.ru/api/v2/",
+    "api_key": "sk-rizoma-2c95de79fa6b80cc3947f92a",
+    "model": "cache/gpt-4o-mini",
+    "site_dir": ".",
+    "version": "2.1"
+}
