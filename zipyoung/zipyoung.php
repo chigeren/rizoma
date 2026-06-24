@@ -12,6 +12,7 @@ $agentName = 'young';
 $bridgeFile = __DIR__ . '/bridge.json';
 $logFile = __DIR__ . '/zipyoung.log';
 $cmdFile = __DIR__ . '/.daemon-cmd';
+$apiTimeout = 20; // СЃРµРєСѓРЅРґ РЅР° API Р·Р°РїСЂРѕСЃ, С‡С‚РѕР±С‹ РЅРµ РІРёСЃРЅСѓС‚СЊ
 
 $mode = $argv[1] ?? 'oneshot';
 
@@ -39,7 +40,7 @@ function saveBridge($data) {
 }
 
 function callAI($prompt) {
-    global $apiUrl, $apiKey, $model;
+    global $apiUrl, $apiKey, $model, $apiTimeout;
 
     $payload = json_encode([
         'model' => $model,
@@ -51,11 +52,17 @@ function callAI($prompt) {
     ]);
 
     $ctx = stream_context_create([
-        'http' => ['method' => 'POST', 'header' => "Content-Type: application/json\r\nX-API-Key: $apiKey\r\n", 'content' => $payload, 'timeout' => 60],
+        'http' => ['method' => 'POST', 'header' => "Content-Type: application/json\r\nX-API-Key: $apiKey\r\n", 'content' => $payload, 'timeout' => $apiTimeout],
         'ssl' => ['verify_peer' => false, 'verify_peer_name' => false]
     ]);
 
+    $oldDefault = ini_get('default_socket_timeout');
+    ini_set('default_socket_timeout', $apiTimeout);
+
     $result = @file_get_contents($apiUrl, false, $ctx);
+
+    ini_set('default_socket_timeout', $oldDefault);
+
     if (!$result) return ['text' => 'API error: ' . (error_get_last()['message'] ?? '?')];
     if (substr($result, 0, 3) === "\xEF\xBB\xBF") $result = substr($result, 3);
     $data = json_decode($result, true);
@@ -114,27 +121,30 @@ if ($mode === 'chat') {
     while (true) {
         echo "\n> ";
         $input = trim(fgets(STDIN));
+        if ($input === '' || $input === false) continue;
         if ($input === 'q' || $input === 'quit') break;
-        if (!$input) continue;
+        $t0 = microtime(true);
         $r = callAI($input);
-        echo $r['text'] . "\n";
+        echo $r['text'] . "\n[" . round(microtime(true) - $t0, 1) . "s]\n";
     }
     exit;
 }
 
 if ($mode === 'daemon') {
     file_put_contents($logFile, "[" . date('Y-m-d H:i:s') . "] zipyoung daemon started\n", FILE_APPEND);
-    echo "zipyoung daemon. See $logFile\n";
+    echo "zipyoung daemon started. Polling every 5s for bridge messages.\n";
+    echo "Commands: echo q > .daemon-cmd | echo p > .daemon-cmd | echo r > .daemon-cmd\n";
+    $startTime = time();
     while (true) {
         if (file_exists($cmdFile)) {
             $cmd = trim(file_get_contents($cmdFile));
             unlink($cmdFile);
             if ($cmd === 'q' || $cmd === 'quit') { echo "Bye.\n"; exit; }
-            if ($cmd === 'p' || $cmd === 'check') echo "[" . date('H:i:s') . "] alive\n";
+            if ($cmd === 'p' || $cmd === 'check') echo "[" . date('H:i:s') . "] alive (uptime: " . (time() - $startTime) . "s)\n";
             if ($cmd === 'r' || $cmd === 'read') {
                 $d = loadBridge();
                 foreach (array_slice($d['messages'] ?? [], -5) as $m)
-                    echo "  #{$m['id']} {$m['from']}->{$m['to']}: " . mb_substr($m['body'] ?? '', 0, 60) . "\n";
+                    echo "  #{$m['id']} {$m['from']}->{$m['to']}: " . (function_exists('mb_substr') ? mb_substr($m['body'] ?? '', 0, 60) : substr($m['body'] ?? '', 0, 60)) . "\n";
             }
             if ($cmd === 'l' || $cmd === 'log') {
                 $lines = file_exists($logFile) ? file($logFile) : [];
@@ -142,11 +152,18 @@ if ($mode === 'daemon') {
             }
         }
         try {
-            if (oneShot()) {
-                file_put_contents($logFile, "[" . date('H:i:s') . "] processed\n", FILE_APPEND);
+            $t0 = microtime(true);
+            $hadNew = oneShot();
+            $elapsed = round(microtime(true) - $t0, 2);
+            if ($hadNew) {
+                $msg = "[" . date('H:i:s') . "] processed in {$elapsed}s\n";
+                file_put_contents($logFile, $msg, FILE_APPEND);
+                echo $msg;
             }
         } catch (Exception $e) {
-            file_put_contents($logFile, "ERROR: " . $e->getMessage() . "\n", FILE_APPEND);
+            $err = "ERROR: " . $e->getMessage() . "\n";
+            file_put_contents($logFile, $err, FILE_APPEND);
+            echo $err;
         }
         sleep(5);
     }
