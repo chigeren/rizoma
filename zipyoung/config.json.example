@@ -1,0 +1,5 @@
+{
+    "gh_token": "Р’РђРЁ_GITHUB_TOKEN_РЎР®Р”Рђ",
+    "model": "gpt-4o-mini",
+    "api_url": "https://models.inference.ai.azure.com/chat/completions"
+}
